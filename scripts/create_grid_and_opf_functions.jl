@@ -176,14 +176,14 @@ function create_grid(start_hour,number_of_hours;output_filename::String = "./tes
             push!(DC_overlay_grid["convdc"]["$idx"]["source_id"], idx)
 
             # Computed with Hakan's excel
-            DC_overlay_grid["convdc"]["$idx"]["rtf"] = r[2] 
-            DC_overlay_grid["convdc"]["$idx"]["xtf"] = r[3] 
-            DC_overlay_grid["convdc"]["$idx"]["bf"] = r[4] 
-            DC_overlay_grid["convdc"]["$idx"]["rc"] = r[5]
-            DC_overlay_grid["convdc"]["$idx"]["xc"] = r[6]
-            DC_overlay_grid["convdc"]["$idx"]["lossA"] = r[7]/DC_overlay_grid["baseMVA"] 
-            DC_overlay_grid["convdc"]["$idx"]["lossB"] = r[8]
-            DC_overlay_grid["convdc"]["$idx"]["lossCrec"] = r[9] 
+            #DC_overlay_grid["convdc"]["$idx"]["rtf"] = r[2] 
+            #DC_overlay_grid["convdc"]["$idx"]["xtf"] = r[3] 
+            #DC_overlay_grid["convdc"]["$idx"]["bf"] = r[4] 
+            #DC_overlay_grid["convdc"]["$idx"]["rc"] = r[5]
+            #DC_overlay_grid["convdc"]["$idx"]["xc"] = r[6]
+            #DC_overlay_grid["convdc"]["$idx"]["lossA"] = r[7]/DC_overlay_grid["baseMVA"] 
+            #DC_overlay_grid["convdc"]["$idx"]["lossB"] = r[8]
+            #DC_overlay_grid["convdc"]["$idx"]["lossCrec"] = r[9] 
         end
     end
 

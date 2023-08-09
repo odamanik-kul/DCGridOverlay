@@ -33,7 +33,7 @@ selected_timesteps_RES_time_series = Dict{String,Any}()
 selected_timesteps_load_time_series = Dict{String,Any}()
 result_timesteps = Dict{String,Any}()
 timesteps = ["476", "6541", "2511", "2723","6311", "1125"]
-timesteps = collect(1:8760)
+#timesteps = collect(1:8760)
 for l in timesteps
     if typeof(l) == String 
         selected_timesteps_RES_time_series["$l"] = Dict{String,Any}()
@@ -69,6 +69,17 @@ for l in timesteps
     end
 end
 
+#for (b_id,b) in test_case["branch"]
+#    b["rate_a"] = b["rate_a"]*100
+#end
+#for (b_id,b) in test_case["branch"]
+#    b["br_r"] = b["br_r"]/100
+#end
+#
+#for (b_id,b) in test_case["convdc"]
+#    b["Imax"] = b["Imax"]*10
+#end
+
 # Defining function, to be cleaned up
 function solve_opf_timestep(data,RES,load,timesteps;output_filename::String = "./results/OPF_results_selected_timesteps")
     result_timesteps_dc = Dict{String,Any}()
@@ -99,12 +110,10 @@ function solve_opf_timestep(data,RES,load,timesteps;output_filename::String = ".
     open(output_filename*"_ACPPowerModel$(length(timesteps))_timesteps.json","w" ) do f
         write(f,string_data)
     end
+    return result_timesteps_dc, result_timesteps_ac
 end
 
-solve_opf_timestep(test_case,selected_timesteps_RES_time_series,selected_timesteps_load_time_series,timesteps)
+result_dc, result_ac = solve_opf_timestep(test_case,selected_timesteps_RES_time_series,selected_timesteps_load_time_series,timesteps)
     
 
 
-for (conv_id,conv) in test_case["convdc"]
-    print([conv["Pacmax"],conv_id],"\n")
-end
