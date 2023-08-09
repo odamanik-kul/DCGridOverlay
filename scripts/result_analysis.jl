@@ -23,8 +23,8 @@ end
 
 
 # Read results file
-output_filename = "./results/OPF_results_selected_timesteps_DCPPowerModel.json"
-results = JSON.parsefile(output_filename)
+output_filename = "./results/OPF_results_selected_timesteps_DCPPowerModel_8760_timesteps.json"
+results_raw = JSON.parsefile(output_filename)
 ##########################################################################
 
 #2723 -> MIN onshore wind
@@ -50,3 +50,64 @@ dc_branch_flow = [[results["6541"]["solution"]["branchdc"][i]["pt"],grid["branch
 gen = [[results["6541"]["solution"]["gen"][i]["pg"],grid["gen"][i]["name"]] for i in eachindex(results["6541"]["solution"]["gen"]) if results["6541"]["solution"]["gen"][i]["pg"] != 0.0]
 load_timestep = [[load[i][6541],i] for i in eachindex(load)]
 total_load_timestep = sum(load_timestep[i][1] for i in 1:length(load_timestep))
+
+
+conv_ids = [conv_id for (conv_id,conv) in grid["convdc"]] # dict order
+conv_ids = [string(i) for i=1:length(grid["convdc"])] # ascend
+n_time_steps = 8760
+results_sorted = [results_raw[string(i)] for i=1:n_time_steps]
+# results["convdc"] = Dict(conv_id => Dict("vmconv" => [],"vaconv" => [],"pconv" => [],"pdc" => [],"pgrid" => [],"qgrid" => []) for conv_id in conv_ids)
+results["convdc"] = Dict(conv_id => Dict("vaconv" => [],"pconv" => [],"pdc" => [],"pgrid" => []) for conv_id in conv_ids)
+for i=1:n_time_steps    
+    for conv_id in conv_ids
+        for (sol_id,sol) in results["convdc"][conv_id]
+            push!(sol,results_sorted[i]["solution"]["convdc"][conv_id][sol_id])
+        end
+    end
+end
+results_sorted[1]["solution"]["convdc"]["4"]
+results["convdc"]["4"]
+
+busdc_ids = [busdc_id for (busdc_id,busdc) in grid["busdc"]] # dict order
+busdc_ids = [string(i) for i=1:length(grid["busdc"])] # ascend
+n_time_steps = 8760
+results_sorted = [results_raw[string(i)] for i=1:n_time_steps]
+results["busdc"] = Dict(busdc_id => Dict("vm" => []) for busdc_id in busdc_ids)
+for i=1:n_time_steps    
+    for busdc_id in busdc_ids
+        for (sol_id,sol) in results["busdc"][busdc_id]
+            push!(sol,results_sorted[i]["solution"]["busdc"][busdc_id][sol_id])
+        end
+    end
+end
+results_sorted[1]["solution"]["busdc"]["4"]
+results["busdc"]["4"]
+
+branchdc_ids = [branchdc_id for (branchdc_id,branchdc) in grid["branchdc"]] # dict order
+branchdc_ids = [string(i) for i=1:length(grid["branchdc"])] # ascend
+n_time_steps = 8760
+results_sorted = [results_raw[string(i)] for i=1:n_time_steps]
+results["branchdc"] = Dict(branchdc_id => Dict("pt" => [],"pf" => [],"pabs" => []) for branchdc_id in branchdc_ids)
+for i=1:n_time_steps    
+    for branchdc_id in branchdc_ids
+        for (sol_id,sol) in results["branchdc"][branchdc_id]
+            if sol_id == "pabs"
+                pabs_max = maximum([results_sorted[i]["solution"]["branchdc"][branchdc_id]["pf"],results_sorted[i]["solution"]["branchdc"][branchdc_id]["pt"]])
+                push!(sol,pabs_max)
+            else
+                push!(sol,results_sorted[i]["solution"]["branchdc"][branchdc_id][sol_id])
+            end
+        end
+    end
+end
+results_sorted[1]["solution"]["branchdc"]["4"]
+results["branchdc"]["4"]
+
+using Plots
+
+plot_conv_vmconv = scatter(1:n_time_steps,results["convdc"]["4"]["vmconv"],ylims=(0.85,1.05), legend=false)
+plot_busdc_vm = scatter(1:n_time_steps,results["busdc"]["5"]["vm"],ylims=(0.85,1.05), legend=false)
+plot_branchdc_vm = scatter(1:n_time_steps,results["branchdc"]["9"]["pabs"],ylims=(0,200), legend=false)
+plot_branchdc_vm = scatter(1:n_time_steps,results["branchdc"]["3"]["pf"], legend=false, alpha=0.1,markerstrokewidth=0)
+
+plot_conv_pgrid = scatter(1:n_time_steps,results["convdc"]["4"]["pgrid"])
