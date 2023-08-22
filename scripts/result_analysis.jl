@@ -21,10 +21,17 @@ for (br_id,br) in grid["branchdc"]
     br["name"] = "DC_L_$(br["fbusdc"])$(br["tbusdc"])"
 end
 
-
+case_name = "dcopf" # or "acopf" or any name to create a folder
 # Read results file
-output_filename = "./results/OPF_results_selected_timesteps_ACPPowerModel8760_timesteps.json"
+# Choose result file (.json file)
+output_filename = "./results/external/OPF_results_selected_timesteps_DCPPowerModel_8760_timesteps.json"
 results_raw = JSON.parsefile(output_filename)
+time_steps = sort([t for (t,sim) in results_raw])
+max_time_steps = 8760
+n_time_steps = length(time_steps)
+# results_sorted = [results_raw[string(i)] for i=1:n_time_steps]
+results_sorted = [merge(results_raw[string(i)],Dict("time_step" => string(i))) for i=1:max_time_steps if haskey(results_raw,string(i))]
+
 ##########################################################################
 
 #2723 -> MIN onshore wind
@@ -52,13 +59,6 @@ load_timestep = [[load[i][6541],i] for i in eachindex(load)]
 total_load_timestep = sum(load_timestep[i][1] for i in 1:length(load_timestep))
 
 
-
-time_steps = sort([t for (t,sim) in results_raw])
-max_time_steps = 8760
-n_time_steps = length(time_steps)
-# results_sorted = [results_raw[string(i)] for i=1:n_time_steps]
-results_sorted = [merge(results_raw[string(i)],Dict("time_step" => string(i))) for i=1:max_time_steps if haskey(results_raw,string(i))]
-
 conv_ids = [conv_id for (conv_id,conv) in grid["convdc"]] # dict order
 conv_ids = [string(i) for i=1:length(grid["convdc"])] # ascend
 # results["convdc"] = Dict(conv_id => Dict("vmconv" => [],"vaconv" => [],"pconv" => [],"pdc" => [],"pgrid" => [],"qgrid" => []) for conv_id in conv_ids)
@@ -83,14 +83,14 @@ results["convdc"]["4"]
 #         end
 #     end
 # end
-# results_sorted[1]["solution"]["busdc"]["4"]
-# results["busdc"]["4"]
 
+# DC branch flow
 branchdc_ids = [branchdc_id for (branchdc_id,branchdc) in grid["branchdc"]] # dict order
 branchdc_ids = [string(i) for i=1:length(grid["branchdc"])] # ascend
 results["branchdc"] = Dict(branchdc_id => Dict("pt" => [],"pf" => [],"pabs" => []) for branchdc_id in branchdc_ids)
 for i=1:n_time_steps    
     for branchdc_id in branchdc_ids
+        branch_pmax = grid["branchdc"][branchdc_id]["rateA"]
         for (sol_id,sol) in results["branchdc"][branchdc_id]
             if sol_id == "pabs"
                 pabs_max = maximum([results_sorted[i]["solution"]["branchdc"][branchdc_id]["pf"],results_sorted[i]["solution"]["branchdc"][branchdc_id]["pt"]])
@@ -101,9 +101,24 @@ for i=1:n_time_steps
         end
     end
 end
-results_sorted[1]["solution"]["branchdc"]["4"]
-results["branchdc"]["4"]
-
+# DC branch flow - Normalized
+branchdc_ids = [branchdc_id for (branchdc_id,branchdc) in grid["branchdc"]] # dict order
+branchdc_ids = [string(i) for i=1:length(grid["branchdc"])] # ascend
+results["branchdc_norm"] = Dict(branchdc_id => Dict("pt" => [],"pf" => [],"pabs" => []) for branchdc_id in branchdc_ids)
+for i=1:n_time_steps    
+    for branchdc_id in branchdc_ids
+        branch_pmax = grid["branchdc"][branchdc_id]["rateA"]
+        for (sol_id,sol) in results["branchdc_norm"][branchdc_id]
+            if sol_id == "pabs"
+                pabs_max = maximum([results_sorted[i]["solution"]["branchdc"][branchdc_id]["pf"],results_sorted[i]["solution"]["branchdc"][branchdc_id]["pt"]])/branch_pmax
+                push!(sol,pabs_max)
+            else
+                push!(sol,results_sorted[i]["solution"]["branchdc"][branchdc_id][sol_id]/branch_pmax)
+            end
+        end
+    end
+end
+# AC branch flow
 branch_ids = [branch_id for (branch_id,branch) in grid["branch"]] # dict order
 branch_ids = [string(i) for i=1:length(grid["branch"])] # ascend
 results["branch"] = Dict(branch_id => Dict("pt" => [],"pf" => [],"pabs" => []) for branch_id in branch_ids)
@@ -119,25 +134,24 @@ for i=1:n_time_steps
         end
     end
 end
-
-using Plots
-
-# plot_conv_vmconv = scatter(1:n_time_steps,results["convdc"]["4"]["vmconv"],ylims=(0.85,1.05), legend=false)
-plot_busdc_vm = scatter(1:n_time_steps,results["busdc"]["5"]["vm"],ylims=(0.85,1.05), legend=false)
-# plot_branchdc_pabs = scatter(1:n_time_steps,results["branchdc"]["9"]["pabs"],ylims=(0,200), legend=false)
-plot_branchdc_pf = scatter(1:n_time_steps,results["branchdc"]["1"]["pf"], legend=false, alpha=0.6,markerstrokewidth=0)
-
-plot_branch_pabs = scatter(1:n_time_steps,results["branch"]["8"]["pabs"],ylims=(0,200), legend=false)
-
-for bd in branchdc_ids
-    plot_branchdc_pf = scatter(1:n_time_steps,results["branchdc"]["1"]["pf"], legend=false, alpha=0.6,markerstrokewidth=0,ylims=(-200,200))
-    title!(bd)
-    Plots.svg(joinpath("./","branchdc_flow_-$bd.svg"))
+# AC branch flow - Normalized
+branch_ids = [branch_id for (branch_id,branch) in grid["branch"]] # dict order
+branch_ids = [string(i) for i=1:length(grid["branch"])] # ascend
+results["branch_norm"] = Dict(branch_id => Dict("pt" => [],"pf" => [],"pabs" => []) for branch_id in branch_ids)
+for i=1:n_time_steps    
+    for branch_id in branch_ids
+        branch_pmax = grid["branch"][branch_id]["rate_a"]
+        for (sol_id,sol) in results["branch"][branch_id]
+            if sol_id == "pabs"
+                pabs_max = maximum([results_sorted[i]["solution"]["branch"][branch_id]["pf"],results_sorted[i]["solution"]["branch"][branch_id]["pt"]])/branch_pmax
+                push!(sol,pabs_max)
+            else
+                push!(sol,results_sorted[i]["solution"]["branch"][branch_id][sol_id]/branch_pmax)
+            end
+        end
+    end
 end
-for b in branch_ids
-    plot_branch_pf = scatter(1:n_time_steps,results["branch"]["1"]["pf"], legend=false, alpha=0.6,markerstrokewidth=0,ylims=(-200,200))
-    title!(b)
-    Plots.svg(joinpath("./","branch_flow_-$b.svg"))
-end
-joinpath("../","branch_flow_-.svg")
-plot_conv_pgrid = scatter(1:n_time_steps,results["convdc"]["4"]["pgrid"])
+
+
+
+
