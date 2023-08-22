@@ -8,5 +8,5 @@ using PowerModelsACDC; const _PMACDC = PowerModelsACDC
 using JSON
 
 # One can choose the Pmax of the conv_power among 2.0, 4.0 and 8.0 GW
-conv_power = 4.0
+conv_power = 8.0 # GW
 grid, demand, res = create_grid(1,8760,conv_power)

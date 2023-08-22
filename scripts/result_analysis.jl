@@ -4,6 +4,8 @@ using Plots
 
 ##########################################################################
 # Read time series file
+conv_power = 2.0 #GW
+
 res_filename = "./test_cases/DC_overlay_grid_RES_1_8760.json"
 res = JSON.parsefile(res_filename)
 
@@ -24,7 +26,7 @@ end
 
 
 # Read results file
-output_filename_dc = "./results/OPF_results_selected_timesteps_DCPPowerModel_168_timesteps.json"
+output_filename_dc = "/Users/giacomobastianel/Library/CloudStorage/OneDrive-KULeuven/DC_grid_overlay_results/results_ACPPowerModel_8760_timesteps_8.0_GW_convdc.json"
 results_dc = JSON.parsefile(output_filename_dc)
 
 output_filename_ac = "./results/OPF_results_selected_timesteps_ACPPowerModel168_timesteps.json"

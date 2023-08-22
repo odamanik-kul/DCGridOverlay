@@ -8,7 +8,7 @@ using Ipopt, Gurobi
 ##########################################################################
 # Call and parse the grid, RES and load time series 
 ##########################################################################
-conv_power = 8.0
+conv_power = 2.0
 test_case_file = "DC_overlay_grid_$(conv_power)_GW_convdc.json"
 test_case = _PM.parse_file("./test_cases/$test_case_file")
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
@@ -69,6 +69,14 @@ for l in timesteps
     end
 end
 
+for (br_id,br) in grid["branch"]
+    br["br_r"] = br["br_r"]/1000 
+    br["br_x"] = br["br_x"]/1000 
+end
+for (br_id,br) in test_case["branch"]
+    br["br_r"] = br["br_r"]/1000 
+    br["br_x"] = br["br_x"]/1000 
+end
 
 # Defining function, to be cleaned up
 function solve_opf_timestep(data,RES,load,timesteps,conv_power;output_filename::String = "/Users/giacomobastianel/Library/CloudStorage/OneDrive-KULeuven/DC_grid_overlay_results/results")

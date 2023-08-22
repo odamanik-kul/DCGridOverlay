@@ -190,6 +190,7 @@ function create_grid(start_hour,number_of_hours,conv_power;output_filename::Stri
                     sum = sum + brdc["rateA"]
                 end
             end 
+            DC_overlay_grid["convdc"]["$idx"]["Imax"] = deepcopy(conv_power*10) # Big assumption here, to be checked 
             DC_overlay_grid["convdc"]["$idx"]["Pacmax"] = deepcopy(sum) # Values to not having this power constraining the OPF -> sum of the capacities coming in and going out
             DC_overlay_grid["convdc"]["$idx"]["Pacmin"] = - deepcopy(sum)
             DC_overlay_grid["convdc"]["$idx"]["Qacmin"] = - deepcopy(sum)
@@ -202,15 +203,17 @@ function create_grid(start_hour,number_of_hours,conv_power;output_filename::Stri
             push!(DC_overlay_grid["convdc"]["$idx"]["source_id"],"convdc")
             push!(DC_overlay_grid["convdc"]["$idx"]["source_id"], idx)
 
+            #=
             # Computed with Hakan's excel
-            #DC_overlay_grid["convdc"]["$idx"]["rtf"] = r[2] 
-            #DC_overlay_grid["convdc"]["$idx"]["xtf"] = r[3] 
-            #DC_overlay_grid["convdc"]["$idx"]["bf"] = r[4] 
-            #DC_overlay_grid["convdc"]["$idx"]["rc"] = r[5]
-            #DC_overlay_grid["convdc"]["$idx"]["xc"] = r[6]
-            #DC_overlay_grid["convdc"]["$idx"]["lossA"] = r[7]/DC_overlay_grid["baseMVA"] 
-            #DC_overlay_grid["convdc"]["$idx"]["lossB"] = r[8]
-            #DC_overlay_grid["convdc"]["$idx"]["lossCrec"] = r[9] 
+            DC_overlay_grid["convdc"]["$idx"]["rtf"] = r[2] 
+            DC_overlay_grid["convdc"]["$idx"]["xtf"] = r[3] 
+            DC_overlay_grid["convdc"]["$idx"]["bf"] = r[4] 
+            DC_overlay_grid["convdc"]["$idx"]["rc"] = r[5]
+            DC_overlay_grid["convdc"]["$idx"]["xc"] = r[6]
+            DC_overlay_grid["convdc"]["$idx"]["lossA"] = r[7]/DC_overlay_grid["baseMVA"] 
+            DC_overlay_grid["convdc"]["$idx"]["lossB"] = r[8]
+            DC_overlay_grid["convdc"]["$idx"]["lossCrec"] = r[9] 
+            =#
         end
     end
 
@@ -227,14 +230,14 @@ function create_grid(start_hour,number_of_hours,conv_power;output_filename::Stri
         l = length(DC_overlay_grid["convdc"])
         new_convs = collect(1:n_conv["$i"])  
         for n in new_convs
-            if n != 1
+            #if n != 1
                 new_conv = l + n
                 DC_overlay_grid["convdc"]["$new_conv"] = deepcopy(DC_overlay_grid["convdc"]["$i"])
                 DC_overlay_grid["convdc"]["$new_conv"]["index"] = new_conv
                 DC_overlay_grid["convdc"]["$new_conv"]["source_id"] = []
                 push!(DC_overlay_grid["convdc"]["$new_conv"]["source_id"],"convdc")
                 push!(DC_overlay_grid["convdc"]["$new_conv"]["source_id"], new_conv)
-            end
+            #end
         end
     end
 
