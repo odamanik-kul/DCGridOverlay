@@ -8,7 +8,7 @@ using JSON
 using JuMP
 using CbaOPF
 
-function create_grid(start_hour,number_of_hours;output_filename::String = "./test_cases/DC_overlay_grid")
+function create_grid(start_hour,number_of_hours,conv_power;output_filename::String = "./test_cases/DC_overlay_grid")
     # Uploading an example test system
     test_case_5_acdc = "case5_acdc.m"
     s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
@@ -86,6 +86,16 @@ function create_grid(start_hour,number_of_hours;output_filename::String = "./tes
         push!(DC_overlay_grid["busdc"]["$idx"]["source_id"],idx)
     end
 
+    # Bus dc for point-to-point links
+    n_busdc = length(DC_overlay_grid["busdc"])
+    for i in 1:8
+        DC_overlay_grid["busdc"]["$(n_busdc+i)"] = deepcopy(DC_overlay_grid["busdc"]["1"])
+        DC_overlay_grid["busdc"]["$(n_busdc+i)"]["name"] = "Bus_dc_$(n_busdc+i)"
+        DC_overlay_grid["busdc"]["$(n_busdc+i)"]["index"] = n_busdc+i
+        DC_overlay_grid["busdc"]["$(n_busdc+i)"]["busdc_i"] = n_busdc+i
+        DC_overlay_grid["busdc"]["$(n_busdc+i)"]["source_id"][2] = n_busdc+i
+    end
+
     # Branches
     DC_overlay_grid["branch"] = Dict{String,Any}()
     for r in XLSX.eachrow(xf["AC_grid_build"])
@@ -127,7 +137,7 @@ function create_grid(start_hour,number_of_hours;output_filename::String = "./tes
         if i > 1 && i <= 9 # compensate for header and limit the number of rows to the existing branches
             idx = i - 1
             DC_overlay_grid["branchdc"]["$idx"] = Dict{String,Any}()
-            DC_overlay_grid["branchdc"]["$idx"]["type"] = "DC_line" #branches_dc_dict[:,2][i]
+            DC_overlay_grid["branchdc"]["$idx"]["type"] = "DC_grid" #branches_dc_dict[:,2][i]
             DC_overlay_grid["branchdc"]["$idx"]["index"] = idx
             DC_overlay_grid["branchdc"]["$idx"]["fbusdc"] = parse(Int64,r[1][3])
             DC_overlay_grid["branchdc"]["$idx"]["tbusdc"] = parse(Int64,r[1][4])
@@ -144,6 +154,23 @@ function create_grid(start_hour,number_of_hours;output_filename::String = "./tes
             push!(DC_overlay_grid["branchdc"]["$idx"]["source_id"], idx)
         end
     end
+    # Point-to-point links
+    n_branches = length(DC_overlay_grid["branchdc"])
+    for i in 1:4
+        DC_overlay_grid["branchdc"]["$(n_branches+i)"] = deepcopy(DC_overlay_grid["branchdc"]["1"])
+        DC_overlay_grid["branchdc"]["$(n_branches+i)"]["type"] = "PtP_link" 
+        DC_overlay_grid["branchdc"]["$(n_branches+i)"]["index"] = n_branches+i
+        DC_overlay_grid["branchdc"]["$(n_branches+i)"]["source_id"][2] = n_branches+i
+    end
+    DC_overlay_grid["branchdc"]["9"]["fbusdc"]  = 7
+    DC_overlay_grid["branchdc"]["9"]["tbusdc"]  = 8 
+    DC_overlay_grid["branchdc"]["10"]["fbusdc"] = 11
+    DC_overlay_grid["branchdc"]["10"]["tbusdc"] = 12
+    DC_overlay_grid["branchdc"]["11"]["fbusdc"] = 9
+    DC_overlay_grid["branchdc"]["11"]["tbusdc"] = 10
+    DC_overlay_grid["branchdc"]["12"]["fbusdc"] = 13
+    DC_overlay_grid["branchdc"]["12"]["tbusdc"] = 14
+
 
     # DC Converters
     DC_overlay_grid["convdc"] = Dict{String,Any}()
@@ -186,6 +213,64 @@ function create_grid(start_hour,number_of_hours;output_filename::String = "./tes
             #DC_overlay_grid["convdc"]["$idx"]["lossCrec"] = r[9] 
         end
     end
+
+    # Count the number of converters needed to have the Pmax equal to conv_power and transmit the same amount of power
+    n_conv = Dict{String,Any}() # -> dict with the number of converters with the same power
+    for i in eachindex(DC_overlay_grid["convdc"])
+        n_conv[i] = ceil(Int,DC_overlay_grid["convdc"][i]["Pacmax"]/(conv_power*10))
+    end
+
+    original_conv = deepcopy(DC_overlay_grid["convdc"]) # -> easier to work with a deepcopy
+    
+    # Creating a set of converters for each bus in which the only indeces differing among the converters are index and source_id
+    for i in eachindex(original_conv)
+        l = length(DC_overlay_grid["convdc"])
+        new_convs = collect(1:n_conv["$i"])  
+        for n in new_convs
+            if n != 1
+                new_conv = l + n
+                DC_overlay_grid["convdc"]["$new_conv"] = deepcopy(DC_overlay_grid["convdc"]["$i"])
+                DC_overlay_grid["convdc"]["$new_conv"]["index"] = new_conv
+                DC_overlay_grid["convdc"]["$new_conv"]["source_id"] = []
+                push!(DC_overlay_grid["convdc"]["$new_conv"]["source_id"],"convdc")
+                push!(DC_overlay_grid["convdc"]["$new_conv"]["source_id"], new_conv)
+            end
+        end
+    end
+
+    # Imposing the power to each converter
+    for (conv_id,conv) in DC_overlay_grid["convdc"]
+        conv["Pacmax"] = conv_power*10 #conv["Pacmax"]/n_conv[i] # Values to not having this power constraining the OPF -> sum of the capacities coming in and going out
+        conv["Pacmin"] = - conv_power*10 #conv["Pacmin"]/n_conv[i]
+        conv["Qacmin"] = - conv_power*10 #conv["Qacmin"]/n_conv[i]
+        conv["Qacmax"] = conv_power*10 #conv["Qacmax"]/n_conv[i]
+    end
+
+    # Converters for the Point-to-point links
+    n_convs = length(DC_overlay_grid["convdc"])
+    for i in 1:8
+        DC_overlay_grid["convdc"]["$(n_convs+i)"] = deepcopy(DC_overlay_grid["convdc"]["1"])
+        DC_overlay_grid["convdc"]["$(n_convs+i)"]["type"] = "PtP_link" 
+        DC_overlay_grid["convdc"]["$(n_convs+i)"]["index"] = n_convs+i
+        DC_overlay_grid["convdc"]["$(n_convs+i)"]["source_id"][2] = n_convs+i
+    end
+    DC_overlay_grid["convdc"]["$(n_convs+1)"]["busdc_i"] = 7 
+    DC_overlay_grid["convdc"]["$(n_convs+1)"]["busac_i"] = 1 
+    DC_overlay_grid["convdc"]["$(n_convs+2)"]["busdc_i"] = 9 
+    DC_overlay_grid["convdc"]["$(n_convs+2)"]["busac_i"] = 1 
+    DC_overlay_grid["convdc"]["$(n_convs+3)"]["busdc_i"] = 11 
+    DC_overlay_grid["convdc"]["$(n_convs+3)"]["busac_i"] = 1 
+    DC_overlay_grid["convdc"]["$(n_convs+4)"]["busdc_i"] = 12 
+    DC_overlay_grid["convdc"]["$(n_convs+4)"]["busac_i"] = 2 
+    DC_overlay_grid["convdc"]["$(n_convs+5)"]["busdc_i"] = 13 
+    DC_overlay_grid["convdc"]["$(n_convs+5)"]["busac_i"] = 2 
+    DC_overlay_grid["convdc"]["$(n_convs+6)"]["busdc_i"] = 10 
+    DC_overlay_grid["convdc"]["$(n_convs+6)"]["busac_i"] = 3 
+    DC_overlay_grid["convdc"]["$(n_convs+7)"]["busdc_i"] = 14 
+    DC_overlay_grid["convdc"]["$(n_convs+7)"]["busac_i"] = 3 
+    DC_overlay_grid["convdc"]["$(n_convs+8)"]["busdc_i"] = 8 
+    DC_overlay_grid["convdc"]["$(n_convs+8)"]["busac_i"] = 4 
+    
 
     # Load
     loads = ["I","J","K","L","M","N"]
@@ -363,7 +448,7 @@ function create_grid(start_hour,number_of_hours;output_filename::String = "./tes
     DC_overlay_grid["storage"] = deepcopy(test_grid["storage"])
 
     string_data = JSON.json(DC_overlay_grid)
-    open(output_filename*".json","w" ) do f
+    open(output_filename*"_$(conv_power)_GW_convdc.json","w" ) do f
         write(f,string_data)
     end
 
