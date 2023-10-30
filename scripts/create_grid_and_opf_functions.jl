@@ -623,6 +623,102 @@ function solve_opf_timestep(data,RES,load,timesteps,conv_power;output_filename::
     return result_timesteps_ac,result_timesteps_load#, tcs
 end
 
+function solve_opf_timestep_dc(data,RES,load,timesteps,conv_power;output_filename::String = "/Users/giacomobastianel/Library/CloudStorage/OneDrive-KULeuven/DC_grid_overlay_results/results")
+    #function solve_opf_timestep(data,RES,load,timesteps,conv_power;output_filename::String = "./results/OPF_results_selected_timesteps")
+    result_timesteps_dc = Dict{String,Any}()
+    result_timesteps_ac = Dict{String,Any}()
+    result_timesteps_load = Dict{String,Any}()
+    #tcs=[]
+    for t in timesteps
+        println(t)
+        test_case_timestep = deepcopy(data)
+        res_total=Dict(1=>0.0,2=>0.0,3=>0.0,4=>0.0,5=>0.0,6=>0.0)
+        load_total=Dict(1=>0.0,2=>0.0,3=>0.0,4=>0.0,5=>0.0,6=>0.0)
+        for (g_id,g) in test_case_timestep["gen"]
+            if (g["type"] != "Conventional" && g["type"] != "VOLL")
+                res_total[g["gen_bus"]]=res_total[g["gen_bus"]]+g["pmax"]*RES["$t"][g_id]["time_series"]
+                g["pmax"] = deepcopy(g["pmax"]*RES["$t"][g_id]["time_series"])
+                g["qmax"] = deepcopy(g["qmax"]*RES["$t"][g_id]["time_series"]) 
+                g["qmin"] = deepcopy(-1*g["qmax"]*RES["$t"][g_id]["time_series"]) 
+            end
+        end
+        for (l_id,l) in test_case_timestep["load"]
+            load_total[l["load_bus"]]=load_total[l["load_bus"]]+load["$t"]["Bus_"*l_id]["time_series"]*l["cosphi"]
+            l["pd"] = deepcopy(load["$t"]["Bus_"*l_id]["time_series"]*l["cosphi"])
+            l["qd"] = 0.0#deepcopy(load["$t"]["Bus_"*l_id]["time_series"]*sqrt(1-(l["cosphi"])^2))
+        end
+
+        #Sets price of most expensive generator based on regional RES penetration
+        for (g_id,g) in test_case_timestep["gen"]
+            if (g["type"] == "Conventional")
+                ratio=load_total[g["gen_bus"]]/res_total[g["gen_bus"]]
+                cost=100+ratio*10
+                println(g["pmax"])
+                g["cost"]=[cost,0]
+            end
+        end
+
+
+        #Sets price of most expensive generator based on regional RES penetration
+        #VOLL is set to zero for all simulaitons at the moment
+        for (g_id,g) in test_case_timestep["gen"]
+            if (g["type"] == "VOLL")
+                ratio=load_total[g["gen_bus"]]/res_total[g["gen_bus"]]
+                cost=500+ratio*10
+                #println(cost)
+                g["cost"]=[cost,0]
+            end
+        end
+        
+        ########################################################################################
+        #to adjust P2P converters 28 and 29
+        #test_case["convdc"]["29"]
+        test_case_timestep["convdc"]["25"]["Pacmax"]=30.0
+        test_case_timestep["convdc"]["26"]["Pacmax"]=30.0
+        test_case_timestep["convdc"]["27"]["Pacmax"]=30.0
+        test_case_timestep["convdc"]["28"]["Pacmax"]=30.0
+        test_case_timestep["convdc"]["29"]["Pacmax"]=30.0
+        test_case_timestep["convdc"]["30"]["Pacmax"]=30.0
+
+        test_case_timestep["convdc"]["25"]["Pacmin"]=-30.0
+        test_case_timestep["convdc"]["26"]["Pacmin"]=-30.0
+        test_case_timestep["convdc"]["27"]["Pacmin"]=-30.0
+        test_case_timestep["convdc"]["28"]["Pacmin"]=-30.0
+        test_case_timestep["convdc"]["29"]["Pacmin"]=-30.0
+        test_case_timestep["convdc"]["30"]["Pacmin"]=-30.0
+        #######################################################################################
+
+        ########################################################################################
+        #to remove genertor 16
+
+        #=test_case_timestep["gen"]["16"]["pmax"]=0.0
+
+        test_case_timestep["gen"]["16"]["pmin"]=0.0
+
+        test_case_timestep["gen"]["16"]["qmax"]=test_case_timestep["gen"]["16"]["pmax"]/2
+
+        test_case_timestep["gen"]["16"]["qmin"]=-1*test_case_timestep["gen"]["16"]["pmax"]/2=#
+        ##########################################################################################
+            
+
+        ########################################################################################
+        #to remove P2P converters 28 and 29
+        #test_case["convdc"]["29"]
+        #test_case_timestep["convdc"]["28"]["Pacmax"]=test_case_timestep["convdc"]["28"]["Pacmin"]=0.0
+        #test_case_timestep["convdc"]["29"]["Pacmax"]=test_case_timestep["convdc"]["29"]["Pacmin"]=0.0
+
+        #test_case_timestep["convdc"]["28"]["Pacmax"]=test_case_timestep["convdc"]["28"]["Pacrated"]=0.1
+        #######################################################################################
+
+        #push!(tcs,test_case_timestep)
+        result_timesteps_dc["$t"] = deepcopy(_PMACDC.run_acdcopf(test_case_timestep, DCPPowerModel, gurobi; setting = s))
+        #result_timesteps_ac["$t"] = deepcopy(_PMACDC.run_acdcopf(test_case_timestep, ACPPowerModel, ipopt; setting = s))
+        result_timesteps_load["$t"] = deepcopy(test_case_timestep)
+    
+    end
+    
+    return result_timesteps_dc,result_timesteps_load#, tcs
+end
 
 ######################################### topology check
 
