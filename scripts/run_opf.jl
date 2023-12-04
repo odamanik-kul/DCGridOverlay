@@ -50,7 +50,7 @@ timesteps = ["475"]
 #timesteps = ["475","6363"]
 #timesteps = ["475","1124","1258","6363"]
 
-#timesteps = collect(1:8760)
+timesteps = collect(1:8760)
 
 for l in timesteps
     if typeof(l) == String
@@ -87,7 +87,7 @@ for l in timesteps
 end
 
 # Losing DC branch 3
-test_case["branchdc"]["3"]["rateA"] = 0.0
+#test_case["branchdc"]["3"]["rateA"] = 0.0
 #test_case["branchdc"]["4"]["rateA"] = 0.0
 
 
@@ -129,7 +129,7 @@ result_dc, demand_series = solve_opf_timestep_dc(test_case,selected_timesteps_RE
 ############################################################################################################
 # printing the csv files for strathclyde
 ############################################################################################################
-result_folder = "DCbranch4loss//DC"
+result_folder = "MaxLoadRESratio"
 
 results_dict = result_dc
 
